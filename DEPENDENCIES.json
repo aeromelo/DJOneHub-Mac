@@ -1,0 +1,19 @@
+{
+  "python": {
+    "version": "3.13.16",
+    "release": "20261009",
+    "url": "https://github.com/astral-sh/python-build-standalone/releases/download/20261009/cpython-3.13.16%2B20261009-aarch64-apple-darwin-install_only.tar.gz",
+    "sha256": "3338fcd572a670ec45ac9ef75480b95595ea9b6b5dd320952fcf5df185089941"
+  },
+  "djonehub_enhanced": {
+    "version": "1.2.9",
+    "url": "https://github.com/rogerbush007-a11y/DJOneHub-mac-enhanced/releases/download/v1.2.9/DJOneHub-macOS-universal-v1.2.9.dmg",
+    "sha256": "7151ffe1dda054fff9e3f8104a3b1c83c1f0256f11a3c5f734cd89626d9e4042"
+  },
+  "native_source": {
+    "repository": "https://github.com/rogerbush007-a11y/DJOneHub-mac-enhanced",
+    "ref": "v1.2.9",
+    "archive_sha256": "db10ef9baa524d5006268497c17b9653cff668aabbf433df5299664b8abc30f3",
+    "commit": "1c9c5da25ee79ebcc559b8d0c8128f541e932ca2"
+  }
+}
