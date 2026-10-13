@@ -12,13 +12,14 @@ def replace_once(text, old, new):
 def prepare(root, destination):
     shutil.copytree(root / 'vendor/djonehub-enhanced', destination)
     sources = destination / 'Sources/DJOneHubNotifier'
-    for name in ('NetworkMenu.swift', 'Installer.swift', 'SettingsButtons.swift'):
+    for name in ('NetworkMenu.swift', 'Installer.swift', 'SettingsButtons.swift', 'About.swift'):
         shutil.copy2(root / 'src' / name, sources / name)
     path = sources / 'AppMain.swift'
     text = path.read_text()
-    text = replace_once(text, '            SelfTest.run()', '            SelfTest.run()\n            networkMenuSelfTest()')
+    text = replace_once(text, '            SelfTest.run()', '            SelfTest.run()\n            networkMenuSelfTest()\n            updateCheckerSelfTest()')
     text = replace_once(text, '        let app = NSApplication.shared', '        if offerInstallation() { return }\n        let app = NSApplication.shared')
     text = replace_once(text, '    private let api: DJOneHubAPI', '    private let networkMenu = NetworkMenu()\n    private let api: DJOneHubAPI')
+    text = replace_once(text, '    private var mainWindow: NSWindow?', '    private var mainWindow: NSWindow?\n    private var aboutWindow: NSWindow?')
     text = replace_once(text, '        let demoCall = CommandLine.arguments.contains("--show-call")', '        networkMenu.openManagement = { [weak self] in self?.showMainWindow() }\n        networkMenu.applicationDidFinishLaunching(notification)\n        let demoCall = CommandLine.arguments.contains("--show-call")')
     text = replace_once(text, '        if CommandLine.arguments.contains("--show-window") {', '        if !CommandLine.arguments.contains("--background") || CommandLine.arguments.contains("--show-window") {')
     text = replace_once(text, '    func applicationWillTerminate(_ notification: Notification) {', '    func applicationWillTerminate(_ notification: Notification) {\n        if !healthCheck && previewMode == nil { networkMenu.applicationWillTerminate(notification) }')
@@ -26,9 +27,34 @@ def prepare(root, destination):
     end = text.index('    private func showCellularStatusItem', start)
     text = text[:start] + '    private func pollCellularStatus() async {\n        // Unified NetworkMenu owns the sole cellular signal indicator.\n        networkMenu.refresh()\n    }\n\n' + text[end:]
     # NetworkMenu owns wake routing; upstream keeps backend/USB recovery.
+    text = replace_once(text, 'action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)),',
+                        'action: #selector(showAboutWindow(_:)),')
+    text = replace_once(text, '        appMenu.addItem(.separator())\n        appMenu.addItem(\n            withTitle: "隐藏 DJOneHub",',
+                        '        appMenu.items.first?.target = self\n        appMenu.addItem(.separator())\n        appMenu.addItem(\n            withTitle: "隐藏 DJOneHub",')
+    text = replace_once(text, '    private func installMainMenu() {', '''    @objc private func showAboutWindow(_ sender: Any?) {
+        if aboutWindow == nil {
+            let root = ScrollView { AboutDJOneHubSection().padding(16) }
+                .preferredColorScheme(appSettings.appearance.colorScheme)
+            let window = NSWindow(contentViewController: NSHostingController(rootView: root))
+            window.title = "关于 DJOneHub"
+            window.styleMask = [.titled, .closable, .resizable]
+            window.setContentSize(NSSize(width: 420, height: 360))
+            window.center()
+            window.isReleasedWhenClosed = false
+            aboutWindow = window
+        }
+        aboutWindow?.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+    }
+
+    private func installMainMenu() {''')
     path.write_text(text)
     phone = sources / 'PhoneAppView.swift'
     text = phone.read_text().replace('"com.jamie.djonehub-notifier",', '')
+    text = replace_once(text, '.buttonStyle(.bordered)\n                            .tint(.red)\n                            .controlSize(.regular)',
+                        '.buttonStyle(SettingsActionButtonStyle(destructive: true))\n                            .controlSize(.regular)')
+    text = replace_once(text, '                    MoreView()\n\n                    MoreSectionTitle(L10n.t("服务控制"))',
+                        '                    MoreView()\n\n                    AboutDJOneHubSection()\n\n                    MoreSectionTitle(L10n.t("服务控制"))')
     phone.write_text(text)
     apply_settings_button_colors(sources / 'MoreView.swift')
 

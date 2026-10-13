@@ -539,6 +539,9 @@ def main():
     if action.startswith('quota-command-'):
         from quota_control import set_command
         return set_command(action.removeprefix('quota-command-'))
+    if action.startswith('quota-baseline-'):
+        from quota_control import set_manual_baseline
+        return set_manual_baseline(action.removeprefix('quota-baseline-'))
     if action == 'quota-sync':
         from quota_control import sync
         return sync()

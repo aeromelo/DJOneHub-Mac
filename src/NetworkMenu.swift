@@ -36,6 +36,7 @@ struct QuotaState: Decodable {
     var status: String
     var shared: Bool?
     var query_command: String?
+    var baseline_source: String?
 }
 
 func dataSize(_ bytes: Int64) -> String {
@@ -143,6 +144,8 @@ final class NetworkMenu: NSObject, NSApplicationDelegate {
     private let quotaUsed = NSMenuItem(title: "本地累计：0 MB", action: nil, keyEquivalent: "")
     private let quotaUpdated = NSMenuItem(title: "", action: nil, keyEquivalent: "")
     private var quotaSync: NSMenuItem!
+    private var quotaManual: NSMenuItem!
+    private var unicomPortal: NSMenuItem!
     private var carrierMenu: NSMenuItem!
     private var unicomCommandItem: NSMenuItem!
     private let unicomCommands = NSMenu()
@@ -185,6 +188,8 @@ final class NetworkMenu: NSObject, NSApplicationDelegate {
         }
         quotaSync = add("首次短信同步剩余流量", #selector(syncQuota))
         quotaSync.image = NSImage(systemSymbolName: "arrow.triangle.2.circlepath", accessibilityDescription: "短信同步")
+        quotaManual = add("手动录入剩余流量…", #selector(enterQuotaBaseline))
+        unicomPortal = add("联通官方余量查询", #selector(openUnicomPortal))
         carrierMenu = NSMenuItem(title: "查询运营商：自动识别", action: nil, keyEquivalent: "")
         let carriers = NSMenu()
         carriers.autoenablesItems = false
@@ -280,11 +285,14 @@ final class NetworkMenu: NSObject, NSApplicationDelegate {
         cellular.title = "使用 4G 上网（关闭 Wi-Fi）"
         wifi.title = "使用 Wi-Fi 上网（开启 Wi-Fi）"
         quotaSync.isEnabled = state.cellular_connected && !switching && state.quota?.pending != true
+        quotaManual.isEnabled = state.cellular_connected && !switching
+        unicomPortal.isHidden = state.quota?.carrier != "unicom"
         if let quota = state.quota {
-            quotaRemaining.title = quota.remaining_bytes.map { "\(quota.shared == true ? "共享套餐" : "套餐")剩余：约 \(dataSize($0))（本地估算）" } ?? "套餐剩余：尚未同步"
-            quotaUsed.title = "同步后本地累计：\(dataSize(quota.used_bytes))（收发合计）"
+            let manual = quota.baseline_source == "manual"
+            quotaRemaining.title = quota.remaining_bytes.map { manual ? "剩余估算：约 \(dataSize($0))（手动基线）" : "\(quota.shared == true ? "共享套餐" : "套餐")剩余：约 \(dataSize($0))（本地估算）" } ?? "套餐剩余：尚未同步"
+            quotaUsed.title = "\(manual ? "录入后" : "同步后")本地累计：\(dataSize(quota.used_bytes))（收发合计）"
             quotaUpdated.title = quota.pending || quota.synced_at == nil ? quota.status :
-                "上次短信同步：\(quota.synced_at!.prefix(16).replacingOccurrences(of: "T", with: " "))"
+                "\(manual ? "上次手动录入" : "上次短信同步")：\(quota.synced_at!.prefix(16).replacingOccurrences(of: "T", with: " "))"
             if quota.shared == true && !quota.pending { quotaUpdated.title += " · 其他设备用量需短信更新" }
             if quota.status.contains("未返回") || quota.status.contains("未被") || quota.status.contains("跨月") || quota.status.contains("未识别") || quota.status.contains("未收到") { quotaUpdated.title = quota.status }
             quotaSync.title = quota.pending ? "等待运营商短信回复…" : quota.synced_at == nil ? "首次短信同步剩余流量" : "短信同步剩余流量"
@@ -396,8 +404,9 @@ final class NetworkMenu: NSObject, NSApplicationDelegate {
         cellular.isEnabled = false
         automatic.isEnabled = false
         quotaSync.isEnabled = false
+        quotaManual.isEnabled = false
         for item in vpnSettings.items { item.isEnabled = false }
-        current.title = action == "quota-sync" ? "正在发送流量查询短信…" : action == "test" ? "正在检测联网，请稍候…" : "正在更新网络，请稍候…"
+        current.title = action.hasPrefix("quota-baseline-") ? "正在保存套餐参考值…" : action == "quota-sync" ? "正在发送流量查询短信…" : action == "test" ? "正在检测联网，请稍候…" : "正在更新网络，请稍候…"
         queue.async {
             let result = Result { () throws -> Data in
                 let response = try runNetworkControl(action)
@@ -434,6 +443,30 @@ final class NetworkMenu: NSObject, NSApplicationDelegate {
         if let key = sender.representedObject as? String { act("vpn-toggle-" + key) }
     }
     @objc private func syncQuota() { act("quota-sync") }
+    @objc private func openUnicomPortal() {
+        NSWorkspace.shared.open(URL(string: "https://iservice.10010.com/e4/skip.html?menuCode=000100040001")!)
+    }
+    @objc private func enterQuotaBaseline() {
+        guard !switching else { return }
+        let alert = NSAlert()
+        alert.messageText = "手动录入剩余流量"
+        alert.informativeText = "请输入营业厅查到的当前通用流量余量。此数值作为参考基线，后续按本机用量扣减；显示为手动估算，不是实时营业厅余额。"
+        let field = NSTextField(frame: NSRect(x: 0, y: 0, width: 190, height: 24))
+        field.placeholderString = "例如 12.5"
+        let units = NSPopUpButton(frame: NSRect(x: 200, y: 0, width: 70, height: 24), pullsDown: false)
+        units.addItems(withTitles: ["GB", "MB"])
+        let accessory = NSView(frame: NSRect(x: 0, y: 0, width: 270, height: 24))
+        accessory.addSubview(field)
+        accessory.addSubview(units)
+        alert.accessoryView = accessory
+        alert.addButton(withTitle: "保存参考值")
+        alert.addButton(withTitle: "取消")
+        NSApp.activate(ignoringOtherApps: true)
+        alert.window.initialFirstResponder = field
+        if alert.runModal() == .alertFirstButtonReturn {
+            act("quota-baseline-" + field.stringValue.trimmingCharacters(in: .whitespaces) + (units.titleOfSelectedItem ?? "GB"))
+        }
+    }
     @objc private func selectUnicomCommand(_ sender: NSMenuItem) {
         if let command = sender.representedObject as? String { act("quota-command-" + command) }
     }

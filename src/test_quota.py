@@ -31,6 +31,28 @@ class QuotaTests(unittest.TestCase):
                     request.assert_any_call('sms/send', {'phone': '10010', 'message': command})
         self.assertIsNone(q.parse_remaining('您的当前话费余额为 38.50 元，剩余金额 38.50 元'))
 
+    def test_manual_remaining_sets_an_explicit_estimated_baseline_without_sms(self):
+        card = {'detected_carrier': 'unicom', 'used_bytes': 500, 'pending': {'number': '10010'}}
+        with patch.object(q, 'load', return_value={}), patch.object(q, 'save'), \
+             patch.object(q, 'identify', return_value=card), patch.object(q, 'api', return_value={'available': False}) as request:
+            q.set_manual_baseline('1.5GB')
+        self.assertEqual(card['remaining_bytes'], int(1.5 * 1024**3))
+        self.assertEqual(card['baseline_used'], 500)
+        self.assertNotIn('pending', card)
+        card['used_bytes'] += 1024**2
+        result = q.view(card)
+        self.assertEqual(result['remaining_bytes'], int(1.5 * 1024**3) - 1024**2)
+        self.assertEqual(result['baseline_source'], 'manual')
+        self.assertTrue(result['estimated'])
+        self.assertFalse(any(call.args[0] == 'sms/send' for call in request.call_args_list))
+
+    def test_invalid_manual_quota_does_not_touch_module_or_saved_data(self):
+        for value in ('-1GB', 'NaNGB', '100元', '1e3GB', '1000000000GB', ''):
+            with patch.object(q, 'api') as request, patch.object(q, 'save') as save:
+                with self.assertRaises(RuntimeError): q.set_manual_baseline(value)
+                request.assert_not_called()
+                save.assert_not_called()
+
     def test_telecom_numbered_shared_packages_and_carryover(self):
         message = ('1、国内上网(群组共享)共40960.0MB，已用0.0MB；\n'
                    '2、国内上网(上月结转)共40960.0MB，已用0.0MB；\n'

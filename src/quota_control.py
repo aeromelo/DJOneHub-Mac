@@ -1,5 +1,6 @@
 """Carrier SMS baseline, then local USB RX+TX estimates. Never sends on polling."""
 import datetime
+from decimal import Decimal
 import hashlib
 import json
 import os
@@ -149,6 +150,7 @@ def receive(card):
         remaining = parse_remaining(message.get('content', ''))
         if remaining is not None:
             card.update(remaining_bytes=remaining, baseline_used=card.get('used_bytes', 0),
+                        baseline_source='sms',
                         synced_at=datetime.datetime.now().astimezone().isoformat(timespec='seconds'),
                         status='已同步', sync_month=datetime.datetime.now().strftime('%Y-%m'),
                         shared='共享' in message.get('content', ''))
@@ -177,7 +179,7 @@ def view(card):
                 remaining_bytes=None if remaining is None or stale else max(0, remaining - used),
                 used_bytes=used, synced_at=card.get('synced_at'),
                 pending=bool(card.get('pending')), status='已跨月，请短信同步' if stale else card.get('status', '首次使用，请短信同步'),
-                estimated=True, shared=card.get('shared', False),
+                estimated=True, shared=card.get('shared', False), baseline_source=card.get('baseline_source', 'sms'),
                 query_command=card.get('query_command') or CARRIERS.get(carrier_for(card), ('', '', ''))[2])
 
 
@@ -251,3 +253,20 @@ def set_command(command):
     card.pop('pending', None)
     save(data)
     return dict(ok=True, command=command)
+
+
+def set_manual_baseline(value):
+    match = re.fullmatch(r'\s*(\d{1,9}(?:\.\d{1,6})?)\s*(GB|MB)\s*', value, re.I)
+    if not match:
+        raise RuntimeError('请输入非负数字并选择 GB 或 MB，例如 12.5GB')
+    remaining = int(Decimal(match[1]) * (1024**3 if match[2].upper() == 'GB' else 1024**2))
+    data = load()
+    card = identify(data, force=True)
+    accumulate(card, api('network/traffic'))
+    card.pop('pending', None)
+    card.pop('shared', None)
+    card.update(remaining_bytes=remaining, baseline_used=card.get('used_bytes', 0),
+                baseline_source='manual', synced_at=datetime.datetime.now().astimezone().isoformat(timespec='seconds'),
+                sync_month=datetime.datetime.now().strftime('%Y-%m'), status='手动录入，按本地用量估算；请以营业厅为准')
+    save(data)
+    return dict(ok=True, baseline_source='manual')
