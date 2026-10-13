@@ -31,7 +31,7 @@ VPN 检测参考 Clash Verge v2.5.8：HTTPS 代理 CONNECT + 验证证书的 TLS
 
 ## 快速安装
 
-1. 在 [Releases](https://github.com/aeromelo/DJOneHub-Mac/releases) 下载最新版 arm64 DMG（当前为 `DJOneHub-Mac-1.0.1-macOS-arm64.dmg`）。
+1. 在 [Releases](https://github.com/aeromelo/DJOneHub-Mac/releases) 下载最新版 arm64 DMG（当前为 `DJOneHub-Mac-1.0.2-macOS-arm64.dmg`）。
 2. 打开 DMG，运行“安装或升级 DJOneHub.command”（会打开原生安装窗口），阅读许可后点击“同意并安装”。请使用随包安装流程，而不是直接拖到系统 Applications。
 3. 安装到 `~/Applications/DJOneHub.app`，启动原生窗口；后台服务与 App 在登录时启动。插上模块并允许有线配件连接，网络菜单随即出现。
 4. 手动切换时先关闭“自动使用 4G”，再选择“使用 Wi-Fi 上网”或“使用 4G 上网”。

@@ -16,7 +16,7 @@ CARRIERS = {
     'mobile': ('中国移动', '10086', 'CXLL'),
     'unicom': ('中国联通', '10010', 'CXTCYL'),
 }
-UNICOM_COMMANDS = ('CXTCYL', '2082', 'CXLL', '1071', 'CXLLJ')
+UNICOM_COMMANDS = ('CXTCYL', '2082', 'CXLL', '1071', 'CXLLJ', 'CXYE', 'CXTC', 'CXTQ')
 
 
 def api(path, data=None):
@@ -242,7 +242,7 @@ def set_carrier(carrier):
 
 def set_command(command):
     if command not in UNICOM_COMMANDS:
-        raise RuntimeError('只支持已核实的联通只读查询指令')
+        raise RuntimeError('不支持的联通查询指令')
     data = load()
     card = identify(data, force=True)
     if carrier_for(card) != 'unicom':

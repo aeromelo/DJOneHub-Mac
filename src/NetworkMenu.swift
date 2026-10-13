@@ -197,7 +197,7 @@ final class NetworkMenu: NSObject, NSApplicationDelegate {
         carriers.addItem(.separator())
         unicomCommandItem = NSMenuItem(title: "联通查询指令", action: nil, keyEquivalent: "")
         unicomCommands.autoenablesItems = false
-        for (command, title) in [("CXTCYL", "套餐余量 · CXTCYL（默认）"), ("2082", "套餐余量 · 2082"), ("CXLL", "流量使用 · CXLL"), ("1071", "流量使用 · 1071"), ("CXLLJ", "地区流量详单 · CXLLJ")] {
+        for (command, title) in [("CXTCYL", "套餐余量 · CXTCYL（默认）"), ("2082", "套餐余量 · 2082"), ("CXLL", "流量使用 · CXLL"), ("1071", "流量使用 · 1071"), ("CXLLJ", "地区流量详单 · CXLLJ"), ("CXYE", "查询指令 · CXYE"), ("CXTC", "查询指令 · CXTC"), ("CXTQ", "查询指令 · CXTQ")] {
             let item = NSMenuItem(title: title, action: #selector(selectUnicomCommand(_:)), keyEquivalent: "")
             item.representedObject = command
             item.target = self

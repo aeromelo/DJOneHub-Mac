@@ -15,6 +15,22 @@ class QuotaTests(unittest.TestCase):
             with self.subTest(message=message):
                 self.assertEqual(q.parse_remaining(message), expected)
 
+    def test_added_unicom_commands_send_only_after_manual_sync(self):
+        for command in ('CXYE', 'CXTC', 'CXTQ'):
+            with self.subTest(command=command):
+                card = {'detected_carrier': 'unicom', 'used_bytes': 0}
+                def api(path, data=None):
+                    if path == 'sms': return []
+                    if path == 'sms/send': return {'sent': True}
+                    return {'available': False}
+                with patch.object(q, 'load', return_value={}), patch.object(q, 'save'), \
+                     patch.object(q, 'identify', return_value=card), patch.object(q, 'api', side_effect=api) as request:
+                    q.set_command(command)
+                    request.assert_not_called()
+                    q.sync()
+                    request.assert_any_call('sms/send', {'phone': '10010', 'message': command})
+        self.assertIsNone(q.parse_remaining('您的当前话费余额为 38.50 元，剩余金额 38.50 元'))
+
     def test_telecom_numbered_shared_packages_and_carryover(self):
         message = ('1、国内上网(群组共享)共40960.0MB，已用0.0MB；\n'
                    '2、国内上网(上月结转)共40960.0MB，已用0.0MB；\n'
