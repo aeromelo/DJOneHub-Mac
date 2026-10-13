@@ -87,7 +87,7 @@ def main():
     info = plistlib.loads((native / 'Info.plist').read_bytes())
     info.update(CFBundleName='DJOneHub', CFBundleDisplayName='DJOneHub', CFBundleExecutable='DJOneHub',
                 CFBundleIdentifier='io.github.aeromelo.djonehub.mac', CFBundleShortVersionString=version,
-                CFBundleVersion='100', LSMinimumSystemVersion='13.0')
+                CFBundleVersion=str(int(''.join('%02d' % int(part) for part in version.split('.')))), LSMinimumSystemVersion='13.0')
     (app / 'Contents/Info.plist').write_bytes(plistlib.dumps(info))
     # Sign executable Python modules/libraries before the enclosing bundle.
     for path in sorted((resources / 'python').rglob('*'), key=lambda p: len(p.parts), reverse=True):

@@ -244,6 +244,12 @@ def pin_proxy(device, rebuild=False):
         for name, choice in selected.items():
             if choice:
                 proxy_request('PUT', '/proxies/' + urllib.parse.quote(name, safe=''), {'name': choice})
+        # An unchanged TUN configuration is reused by Mihomo even after reload.
+        # Recreate it on the new physical uplink to replace its old routes.
+        try:
+            proxy_request('PATCH', '/configs', {'tun': {'enable': False}})
+        finally:
+            proxy_request('PATCH', '/configs', {'interface-name': device, 'tun': config['tun']})
         if not proxy_request('GET', '/configs').get('tun', {}).get('enable'):
             raise RuntimeError('代理重建后 TUN 未保持开启，请在 Clash 确认状态')
     else:

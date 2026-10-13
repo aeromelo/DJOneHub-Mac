@@ -36,7 +36,7 @@ python3 scripts/build.py
 
 首次构建下载 DEPENDENCIES.json 固定的 CPython 与增强版 DMG，每个下载以 SHA256 校验；后续使用 .cache。源码中已随附固定 v1.2.9 原生源码和许可。运行时版本不随“latest”变化。
 
-输出：build/DJOneHub.app、dist/DJOneHub-Mac-1.0.0-macOS-arm64.dmg、dist/SHA256SUMS.txt。构建先给 Python 的 Mach-O 模块签名，再签名 App、执行严格校验与原生 self-test，最后生成压缩 DMG。
+输出：build/DJOneHub.app、dist/DJOneHub-Mac-版本-macOS-arm64.dmg、dist/SHA256SUMS.txt。构建先给 Python 的 Mach-O 模块签名，再签名 App、执行严格校验与原生 self-test，最后生成压缩 DMG。
 
 ## 发行
 

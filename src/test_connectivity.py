@@ -184,13 +184,19 @@ class TunnelRebindTests(unittest.TestCase):
         current = {'interface-name': 'en0', 'mode': 'rule', 'ipv6': False, 'mixed-port': 7897,
                    'tun': {'enable': True, 'stack': 'system'}}
         restored = {}
+        tunnel_recreated = []
         def request(method, endpoint, data=None):
             if method == 'GET' and endpoint == '/configs': return copy.deepcopy(current)
             if method == 'GET' and endpoint == '/proxies':
                 return {'proxies': {'AI': {'type': 'Selector', 'now': 'chosen-node'}}}
             if method == 'PUT' and endpoint == '/configs?force=true':
-                current.update({'interface-name': '', 'mode': 'direct', 'tun': {'enable': False}})
-            if method == 'PATCH': current.update(data)
+                # Reload reuses an already-enabled TUN whose settings match.
+                current.update({'interface-name': '', 'mode': 'direct'})
+            if method == 'PATCH':
+                was_enabled = current['tun']['enable']
+                current.update(data)
+                if not was_enabled and current['tun']['enable']:
+                    tunnel_recreated.append(current['interface-name'])
             if method == 'PUT' and endpoint.startswith('/proxies/'):
                 restored[endpoint] = data['name']
             return {}
@@ -202,6 +208,24 @@ class TunnelRebindTests(unittest.TestCase):
         self.assertTrue(current['tun']['enable'])
         self.assertEqual(current['interface-name'], 'en9')
         self.assertEqual(restored['/proxies/AI'], 'chosen-node')
+        self.assertEqual(tunnel_recreated, ['en9'])
+
+    def test_tun_is_restored_even_if_disabling_it_reports_an_error(self):
+        current = {'interface-name': 'en0', 'tun': {'enable': True, 'stack': 'system'}}
+        def request(method, endpoint, data=None):
+            if method == 'GET' and endpoint == '/configs':
+                return {'interface-name': current['interface-name'], 'tun': dict(current['tun'])}
+            if method == 'PATCH':
+                current.update(data)
+                if data.get('tun', {}).get('enable') is False:
+                    raise RuntimeError('temporary API failure')
+            return {}
+        with patch.object(control.Path, 'exists', return_value=True), \
+             patch.object(control, 'proxy_request', side_effect=request):
+            with self.assertRaisesRegex(RuntimeError, 'temporary API'):
+                control.pin_proxy('en9', rebuild=True)
+        self.assertTrue(current['tun']['enable'])
+        self.assertEqual(current['tun']['stack'], 'system')
 
 class DNSReadinessTests(unittest.TestCase):
     def test_temporary_dns_restart_does_not_abort_network_switch(self):
