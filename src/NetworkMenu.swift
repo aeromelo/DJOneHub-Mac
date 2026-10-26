@@ -172,8 +172,7 @@ final class NetworkMenu: NSObject, NSApplicationDelegate {
         menu.addItem(signal)
         powerStatus.isEnabled = false
         menu.addItem(powerStatus)
-        closedLid = add("合盖不休眠：关", #selector(toggleClosedLid))
-        closedLid.image = NSImage(systemSymbolName: "laptopcomputer", accessibilityDescription: "合盖不休眠")
+        closedLid = add("合盖不休眠（保持联网）：关", #selector(toggleClosedLid))
         lidPower.changed = { [weak self] in self?.showClosedLid() }
         lidPower.start()
         showClosedLid()
@@ -265,14 +264,10 @@ final class NetworkMenu: NSObject, NSApplicationDelegate {
     private func show(_ state: NetworkState) {
         lastState = state
         updateSleepProtection(state)
-        status.isVisible = state.cellular_connected || lidPower.enabled || lidPower.busy || lidPower.needsRestore
+        status.isVisible = state.cellular_connected
         let label = state.mode == "4g" ? "4G" : state.mode == "wifi" ? "Wi-Fi" : "其他网络"
         status.button?.title = state.mode == "4g" ? "4G" : "\(label) · 4G"
         status.button?.image = signalIcon(signalLevel(state.signal_dbm))
-        if !state.cellular_connected {
-            status.button?.title = "合盖运行"
-            status.button?.image = NSImage(systemSymbolName: "laptopcomputer", accessibilityDescription: "合盖保护")
-        }
         status.button?.imagePosition = .imageRight
         status.button?.toolTip = "点击选择 Wi-Fi / 4G；" + (state.cellular_available ? "4G 信号 \(state.signal_dbm.map { "\($0) dBm" } ?? "读取中")" : "Mac 尚未识别 4G 模块")
         current.title = "当前出口：\(label)（\(state.device)）"
@@ -349,11 +344,10 @@ final class NetworkMenu: NSObject, NSApplicationDelegate {
     }
 
     private func showClosedLid() {
-        closedLid.title = lidPower.busy ? "合盖不休眠：正在处理…" : lidPower.needsRestore ? "恢复系统休眠…" : lidPower.enabled ? "合盖不休眠：开" : "合盖不休眠：关"
+        closedLid.title = lidPower.busy ? "合盖不休眠（保持联网）：正在处理…" : lidPower.needsRestore ? "恢复系统休眠…" : lidPower.enabled ? "合盖不休眠（保持联网）：开" : "合盖不休眠（保持联网）：关"
         closedLid.state = lidPower.enabled ? .on : .off
         closedLid.isEnabled = !lidPower.busy
         closedLid.toolTip = lidPower.message
-        status.isVisible = lastState?.cellular_connected == true || lidPower.enabled || lidPower.busy || lidPower.needsRestore
         auditMenu()
     }
 
