@@ -29,15 +29,17 @@ USB-C 接口不必固定：工具根据当前系统枚举到的网卡选择出�
 
 这项自动保护不能阻止合盖或手动睡眠。真正唤醒后，工具等待模块重新枚举，尝试恢复 4G 路由并清理失效代理连接；USB 等待窗口约两分钟。若模块硬件未恢复，仍需检查线材、供电和系统 USB 列表。
 
-### 合盖不休眠（1.0.5）
+### 合盖不休眠（1.0.6）
 
 在菜单栏下拉菜单打开「合盖不休眠（保持联网）」，也可在「设置 → 电源」使用同一开关。默认关闭，每次重新打开 App 都需要自行开启；独立于自动 4G 开关，不改变 Wi-Fi / 4G 出口。菜单栏的 Wi-Fi、4G 名称、信号图标及插拔显示规则保持原样，不增加其他状态栏图标。模块未连接时可从设置关闭合盖保护。
 
-macOS 会要求管理员身份验证；取消或验证失败不会显示为已开启。系统批准后 App 调用系统 `pmset -a disablesleep 1`，属于全局休眠控制：接电与电池供电均生效，合盖仍运行、显示器仍允许熄灭，同时会阻止系统菜单的手动睡眠。开启后会增加耗电，保持散热，装包携带前先关闭。
+首次配置会要求一次 macOS 管理员身份验证，以安装仅控制休眠的系统服务。配置成功后，每次开启、关闭以及重新打开 App 后使用该开关，均不再要求登录密码；取消首次授权不会显示为已开启。服务调用系统 `pmset -a disablesleep 1`，属于全局休眠控制：接电与电池供电均生效，合盖仍运行、显示器仍允许熄灭，同时会阻止系统菜单的手动睡眠。开启后会增加耗电，保持散热，装包携带前先关闭。
 
-关闭开关或退出 App 后，已授权的守护进程在约半秒后恢复原来的 `SleepDisabled=0`，无需再次授权。强制退出前台 App 也会被守护进程检测并恢复。已有其他工具设置 `SleepDisabled=1` 时，本 App 拒绝覆盖或接管。
+关闭开关或退出 App 后，系统服务恢复原来的 `SleepDisabled=0`，无需再次授权。强制退出前台 App 时，XPC 连接断开也会触发恢复。已有其他工具设置 `SleepDisabled=1` 时，本 App 拒绝覆盖或接管。
 
-不安装系统 LaunchDaemon、驱动或内核扩展，不要求关闭 SIP。若守护进程也被强杀、突然断电或强制重启，清理可能来不及完成；下次打开 App 会提示「恢复系统休眠」，点击并批准系统授权。也可在终端执行 `sudo pmset -a disablesleep 0` 后用 `pmset -g` 确认 `SleepDisabled` 为 0。该操作只在用户明确恢复时执行，不自动清除其他应用的设置。
+首次授权安装以下组件：`/Library/PrivilegedHelperTools/io.github.aeromelo.djonehub.lidpower`、`/Library/LaunchDaemons/io.github.aeromelo.djonehub.lidpower.plist`。文件属于 root，普通用户不能改写。服务只接受首次授权用户的 XPC 连接，只提供开启 / 关闭休眠的布尔操作，不能执行任意命令；不保存登录密码、不改 sudoers、不要求关闭 SIP。常驻服务平时等待请求，不会自动打开合盖保护。
+
+若服务异常退出或系统重启，launchd 启动服务后会根据 root 专属恢复标记解除未完成的保护。若界面显示「恢复系统休眠」，点击恢复；服务损坏后的重新安装仍可能需要系统授权。卸载 App 时也需要按安装指南移除这个可选系统服务。
 
 技术依据：[Apple pmset 源码](https://github.com/apple-oss-distributions/PowerManagement/blob/main/pmset/pmset.m) 的 `disablesleep` 系统设置；[Apple 内核电源实现](https://github.com/apple-oss-distributions/xnu/blob/main/iokit/Kernel/IOPMrootDomain.cpp) 的 `userDisabledAllSleep`。这是可选的系统控制，并非普通 `caffeinate` 闲置睡眠声明；不同系统与硬件上的实际合盖联网仍需实测。
 

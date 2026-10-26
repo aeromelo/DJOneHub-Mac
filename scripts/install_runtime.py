@@ -89,6 +89,23 @@ def stop_old_frontends():
         else: raise RuntimeError('旧 DJOneHub 窗口未退出，请关闭后重试')
 
 
+def remove_previous_apps():
+    """After a successful upgrade, keep settings backups but not old Apps."""
+    count = 0
+    for backup in (DATA / 'backups').glob('unified-*'):
+        if backup.is_symlink() or not backup.is_dir(): continue
+        for name in ('DJOneHub.app', 'DJOneHub网络切换.app'):
+            old = backup / name
+            if old.is_symlink():
+                old.unlink()  # Remove the saved link, never its target.
+            elif old.is_dir() and owned_app(old):
+                shutil.rmtree(old)
+            else:
+                continue
+            count += 1
+    return count
+
+
 def install():
     if os.geteuid() == 0:
         raise RuntimeError('请以正常登录用户安装，不要使用 sudo')
@@ -152,6 +169,7 @@ def install():
         if not backend_ready():
             raise RuntimeError('后台未就绪，正在恢复之前的安装')
         bootstrap_service(LABEL, agents / (LABEL + '.plist'), '/usr/bin/open')
+        command([str(TARGET / 'Contents/MacOS/DJOneHub'), '--self-test'])
     except Exception:
         for label in labels:
             command(['/bin/launchctl', 'bootout', 'gui/%d/%s' % (os.getuid(), label)], check=False)
@@ -169,7 +187,11 @@ def install():
     finally:
         if staging.exists(): shutil.rmtree(staging)
     command(['/usr/bin/open', str(TARGET)], check=False)
-    print('安装完成：%s；旧程序和启动配置备份在 %s' % (TARGET, backup))
+    try:
+        removed = remove_previous_apps()
+        print('安装完成：%s；已删除 %d 个旧版 App；配置备份保留在 %s' % (TARGET, removed, backup))
+    except OSError as error:
+        print('安装完成：%s；部分旧版 App 未清理：%s' % (TARGET, error))
 
 
 if __name__ == '__main__':

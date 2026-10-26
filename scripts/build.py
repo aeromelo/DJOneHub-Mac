@@ -11,7 +11,7 @@ import urllib.request
 
 ROOT = Path(__file__).resolve().parent.parent
 CACHE = ROOT / '.cache'
-BUILD = ROOT / 'build'
+BUILD = ROOT / 'build.noindex'
 DIST = ROOT / 'dist'
 APP_NAME = 'DJOneHub.app'
 

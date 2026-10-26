@@ -12,12 +12,12 @@ def replace_once(text, old, new):
 def prepare(root, destination):
     shutil.copytree(root / 'vendor/djonehub-enhanced', destination)
     sources = destination / 'Sources/DJOneHubNotifier'
-    for name in ('NetworkMenu.swift', 'Installer.swift', 'SettingsButtons.swift', 'About.swift', 'KeepAwake.swift'):
+    for name in ('NetworkMenu.swift', 'Installer.swift', 'SettingsButtons.swift', 'About.swift', 'KeepAwake.swift', 'LidService.swift'):
         shutil.copy2(root / 'src' / name, sources / name)
     path = sources / 'AppMain.swift'
     text = path.read_text()
-    text = replace_once(text, '            SelfTest.run()', '            SelfTest.run()\n            networkMenuSelfTest()\n            updateCheckerSelfTest()\n            closedLidSelfTest()')
-    text = replace_once(text, '    static func main() {', '    static func main() {\n        if runLidGuardIfRequested() { return }')
+    text = replace_once(text, '            SelfTest.run()', '            SelfTest.run()\n            networkMenuSelfTest()\n            updateCheckerSelfTest()\n            closedLidSelfTest()\n            lidServiceSelfTest()')
+    text = replace_once(text, '    static func main() {', '    static func main() {\n        if runLidServiceIfRequested() { return }')
     text = replace_once(text, '        let app = NSApplication.shared', '        if offerInstallation() { return }\n        let app = NSApplication.shared')
     text = replace_once(text, '    private let api: DJOneHubAPI', '    private let networkMenu = NetworkMenu()\n    private let api: DJOneHubAPI')
     text = replace_once(text, '    private var mainWindow: NSWindow?', '    private var mainWindow: NSWindow?\n    private var aboutWindow: NSWindow?')

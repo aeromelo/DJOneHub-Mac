@@ -8,7 +8,7 @@
 
 安装路径：`~/Applications/DJOneHub.app`。所有原生界面、网络菜单、Python、增强版后端与 libusb 均在这个 bundle 中。无需另装 DJOneHub 或 Python；不会安装 Clash 或代理订阅。
 
-安装器将旧 DJOneHub.app 快捷链接、旧网络菜单 App 和相关 LaunchAgent 备份，再注册合并后的服务：
+安装器先暂存旧 App 和相关 LaunchAgent，用于升级失败时回退；新版本启动及原生自检通过后，自动删除历次升级中的旧版 App，仅保留配置备份，再使用合并后的服务：
 
 | 文件 / 目录 | 用途 |
 | --- | --- |
@@ -25,7 +25,7 @@
 
 ## 升级
 
-从新的 DMG 运行“安装或升级 DJOneHub.command”，保留同一数据目录。不要删除流量记录来升级。安装备份只留在本机，不会上传 GitHub。
+从新的 DMG 运行“安装或升级 DJOneHub.command”，保留同一数据目录。不要删除流量记录来升级。更新成功后只保留当前 App，自动清理本工具升级目录内的旧 App；配置备份继续留在本机，不会上传 GitHub。
 
 以前的增强版 runtime / notifier 副本可能继续留在上游数据目录作为回退资料，新的 LaunchAgent 指向合并 App 内的后端。不会删除旧模块配置、SIM 授权或录音。后台重启会重置上游只保存在进程内的临时短信/通话列表；请先保存尚未持久化的重要内容。
 
@@ -55,3 +55,18 @@ launchctl bootout gui/$(id -u)/com.jamie.djonehub
 统一版使用独立的 App 标识，避免与旧增强版窗口混淆；首次通话或通讯录读取可能需要重新批准相应系统权限。升级入口仅启动同一个 App 的安装界面，不安装第二个 App。
 
 升级重启了 USB 控制后台；若已有模块保持连接但数据请求超时，拔下等 10 秒再接回后复测。首次连接请以实际联网检测为准，而不仅查看网卡图标。
+
+## 可选的合盖免密服务
+
+安装 App 本身不需要管理员密码。首次开启合盖功能时，系统要求授权一次安装专用辅助服务；正常开关与重新打开 App 后再次开关均无需密码。辅助服务不随关闭主窗口停止，但 App 退出后立即恢复休眠并保持空闲。
+
+彻底卸载该可选组件前，先关闭合盖保护并退出 App，再执行：
+
+```sh
+sudo launchctl bootout system/io.github.aeromelo.djonehub.lidpower
+sudo rm -f /Library/LaunchDaemons/io.github.aeromelo.djonehub.lidpower.plist
+sudo rm -f /Library/PrivilegedHelperTools/io.github.aeromelo.djonehub.lidpower
+sudo rm -rf /var/db/io.github.aeromelo.djonehub.lidpower
+```
+
+仅删除这里列出的本项目组件。首次配置、损坏后重装与彻底卸载属于系统管理操作，macOS 仍可要求授权；普通开关无需重复输入密码。

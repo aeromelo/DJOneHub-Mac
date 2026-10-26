@@ -8,7 +8,7 @@ func offerInstallation() -> Bool {
     app.activate(ignoringOtherApps: true)
     let consent = NSAlert()
     consent.messageText = "安装 DJOneHub"
-    consent.informativeText = "安装到当前用户的 Applications 文件夹，并设置登录启动。\n包含增强版 v1.2.9；原生管理界面与网络菜单已整合；已有模块配置和套餐统计将保留。\n本项目及上游采用 PolyForm 非商业许可；继续表示接受随包 LICENSE 与第三方声明。\n安装本身不会切换 USB 模式、开启 ADB 或发送查询短信。"
+    consent.informativeText = "安装到当前用户的 Applications 文件夹，并设置登录启动。\n包含增强版 v1.2.9；原生管理界面与网络菜单已整合；已有模块配置和套餐统计将保留，更新成功后自动删除旧版 App。\n本项目及上游采用 PolyForm 非商业许可；继续表示接受随包 LICENSE 与第三方声明。\n安装本身不会切换 USB 模式、开启 ADB 或发送查询短信。"
     consent.addButton(withTitle: "同意并安装")
     consent.addButton(withTitle: "取消")
     guard consent.runModal() == .alertFirstButtonReturn else { return true }

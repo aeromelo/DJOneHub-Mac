@@ -22,7 +22,7 @@
 | 自动使用 4G | 开启后，只要模块可用就优先 4G，锁定手动切换；关闭后恢复手动选择 |
 | 信号 | 显示实际模块信号的 dBm 和四格图标，未读到时明确显示状态 |
 | 熄屏联网 | 使用 4G 时防止自动整机闲置睡眠，仍允许屏保和显示器熄屏 |
-| 合盖不休眠 | 菜单栏或设置中手动开启；管理员授权后接电和电池均保持运行，关闭或退出 App 后恢复 |
+| 合盖不休眠 | 菜单栏或设置中手动开启；首次授权一次后开关免密，接电和电池均保持运行，关闭或退出 App 后恢复 |
 | 唤醒恢复 | 整机唤醒后等待 USB 重新枚举，恢复 4G 出口并清理失效代理连接 |
 | 联网检测 | 一次检测普通联网与选中的 VPN 站点，仅异常站点逐项红色提示 |
 | 流量 | 用户点击短信同步建立额度基线，之后以模块 RX + TX 做本地估算 |
@@ -32,12 +32,12 @@ VPN 检测参考 Clash Verge v2.5.8：HTTPS 代理 CONNECT + 验证证书的 TLS
 
 ## 快速安装
 
-1. 在 [Releases](https://github.com/aeromelo/DJOneHub-Mac/releases) 下载最新版 arm64 DMG（当前为 `DJOneHub-Mac-1.0.5-macOS-arm64.dmg`）。
+1. 在 [Releases](https://github.com/aeromelo/DJOneHub-Mac/releases) 下载最新版 arm64 DMG（当前为 `DJOneHub-Mac-1.0.7-macOS-arm64.dmg`）。
 2. 打开 DMG，运行“安装或升级 DJOneHub.command”（会打开原生安装窗口），阅读许可后点击“同意并安装”。请使用随包安装流程，而不是直接拖到系统 Applications。
 3. 安装到 `~/Applications/DJOneHub.app`，启动原生窗口；后台服务与 App 在登录时启动。插上模块并允许有线配件连接，网络菜单随即出现。
 4. 手动切换时先关闭“自动使用 4G”，再选择“使用 Wi-Fi 上网”或“使用 4G 上网”。
 
-安装保留原有 DJOneHub 磁盘配置和菜单流量统计，旧 App 与启动项备份到当前用户的数据目录。不会在安装流程中执行 USB 模式写入、ADB 授权或发送套餐短信。完整说明见 [安装指南](docs/INSTALL.md)。
+安装保留原有 DJOneHub 磁盘配置和菜单流量统计。更新期间暂存旧 App 用于失败回退；确认成功后自动删除旧版 App，只保留启动配置备份。不会在安装流程中执行 USB 模式写入、ADB 授权或发送套餐短信。完整说明见 [安装指南](docs/INSTALL.md)。
 
 **发行包为 ad-hoc 签名，未经过 Apple Developer ID 签名或公证。** 如果系统阻止首次打开，请按 [安装指南](docs/INSTALL.md) 在系统设置中允许这一个下载的 App；不要关闭系统的安全机制。
 

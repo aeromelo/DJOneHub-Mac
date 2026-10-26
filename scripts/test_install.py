@@ -44,7 +44,8 @@ class InstallTests(unittest.TestCase):
             self.assertEqual((home / 'Library/Application Support/DJOneHub/usb-profile-intent.json').read_text(), 'keep module profile')
             backups = list((data / 'backups').glob('unified-*'))
             self.assertEqual(len(backups), 1)
-            self.assertTrue((backups[0] / 'DJOneHub.app/Contents/Resources/old').exists())
+            self.assertFalse((backups[0] / 'DJOneHub.app').exists())
+            self.assertTrue((backups[0] / (i.BACKEND_LABEL + '.plist')).exists())
             backend = plistlib.loads((home / 'Library/LaunchAgents' / (i.BACKEND_LABEL + '.plist')).read_bytes())
             self.assertIn(str(target), backend['ProgramArguments'][0])
             native = plistlib.loads((home / 'Library/LaunchAgents' / (i.LABEL + '.plist')).read_bytes())
@@ -100,6 +101,24 @@ class InstallTests(unittest.TestCase):
                 else:
                     with self.assertRaises(RuntimeError):
                         i.bootstrap_service('test.label', Path('/test.plist'), '/right/backend')
+
+    def test_cleanup_only_removes_owned_apps_and_never_follows_backup_links(self):
+        with tempfile.TemporaryDirectory() as folder:
+            data = Path(folder) / 'data'
+            owned = data / 'backups/unified-old/DJOneHub.app'
+            unknown = data / 'backups/unified-unknown/DJOneHub.app'
+            external = Path(folder) / 'external/DJOneHub.app'
+            for app, identity in ((owned, i.LABEL), (unknown, 'unrelated.app'), (external, i.LABEL)):
+                (app / 'Contents').mkdir(parents=True)
+                (app / 'Contents/Info.plist').write_bytes(plistlib.dumps({'CFBundleIdentifier': identity}))
+            (data / 'backups/unified-link').symlink_to(external.parent)
+            config = owned.parent / 'configuration.plist';config.write_text('preserve')
+            with patch.object(i, 'DATA', data):
+                self.assertEqual(i.remove_previous_apps(), 1)
+            self.assertFalse(owned.exists())
+            self.assertTrue(unknown.exists())
+            self.assertTrue(external.exists())
+            self.assertEqual(config.read_text(), 'preserve')
 
 
 if __name__ == '__main__': unittest.main()

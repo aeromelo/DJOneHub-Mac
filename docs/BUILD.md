@@ -24,7 +24,7 @@ src 的 Python 仅依赖标准库。App 用内置 Python 的 `-I -B` 隔离模�
 
 物理出口切换后，使用现有 Mihomo 核心的当前配置重新加载 TUN / DNS，恢复原有模式和手动节点选择，并等待本地 DNS 与无线地址就绪。重新加载会重建旧连接，不替换订阅。
 
-合盖保护由 `KeepAwake.swift` 管理。系统 AppleScript 管理员授权仅启动同一签名可执行文件的 `--lid-guard` 子进程；子进程仅调用固定路径的 pmset，检查父进程 PID / 启动时间与随机会话文件，结束后恢复 SleepDisabled。用户前台进程能删除会话文件停止保护，无需再次提权；没有安装常驻 root 服务。原有 SleepDisabled=1 时拒绝覆盖。普通退出、父进程被强制退出会清理；守护本身被 SIGKILL 或强制断电时以本地恢复标记提示用户修复。
+合盖保护由 `KeepAwake.swift` 与 `LidService.swift` 管理。首次通过系统 AppleScript 管理员授权将同一可执行文件复制为 root 拥有的辅助服务，之后使用 Foundation NSXPCConnection 的 privileged Mach 服务通信，无需每次授权。服务按连接有效 UID 限定首次授权用户，只接受布尔休眠操作；所有操作串行化、按连接记录所有权。连接断开恢复休眠；root 专属 journal 允许服务异常重启或系统重启后恢复。没有保存密码或开放通用命令接口。
 
 ## 构建环境
 
@@ -38,11 +38,13 @@ python3 scripts/build.py
 
 首次构建下载 DEPENDENCIES.json 固定的 CPython 与增强版 DMG，每个下载以 SHA256 校验；后续使用 .cache。源码中已随附固定 v1.2.9 原生源码和许可。运行时版本不随“latest”变化。
 
-输出：build/DJOneHub.app、dist/DJOneHub-Mac-版本-macOS-arm64.dmg、dist/SHA256SUMS.txt。构建先给 Python 的 Mach-O 模块签名，再签名 App、执行严格校验与原生 self-test，最后生成压缩 DMG。
+构建使用 build.noindex 目录，避免 Spotlight 将临时 App 当成多个安装版本。
+
+输出：build.noindex/DJOneHub.app、dist/DJOneHub-Mac-版本-macOS-arm64.dmg、dist/SHA256SUMS.txt。构建先给 Python 的 Mach-O 模块签名，再签名 App、执行严格校验与原生 self-test，最后生成压缩 DMG。
 
 ## 发行
 
-公开目录仅包含源码、文档、上游许可和必要原生资源。排除 .cache、build、dist、用户日志、设置、套餐余额、短信、SIM 信息和安装备份。
+公开目录仅包含源码、文档、上游许可和必要原生资源。排除 .cache、build.noindex、dist、用户日志、设置、套餐余额、短信、SIM 信息和安装备份。
 
 先通过测试、真实设备与安装验证；更新 VERSION / CHANGELOG，再创建公开 GitHub tag 与 Release，上传 DMG 和校验和。GitHub 自动提供源代码压缩包。不把后台 token、代理配置、个人路径或认证资料提交到仓库。
 
