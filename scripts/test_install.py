@@ -83,8 +83,9 @@ class InstallTests(unittest.TestCase):
         listing = '111 ' + str(target / 'Contents/MacOS/DJOneHub') + '\n222 /Applications/Unrelated.app/Contents/MacOS/Unrelated\n'
         def kill(pid, action):
             if action == 0: raise ProcessLookupError()
-        with patch.object(i, 'TARGET', target), patch.object(i, 'USER_HOME', Path('/test')),              patch.object(i, 'command', return_value=SimpleNamespace(stdout=listing)),              patch.object(i.os, 'getpid', return_value=999), patch.object(i.os, 'getppid', return_value=998),              patch.object(i.os, 'kill', side_effect=kill) as terminate:
+        with patch.object(i, 'TARGET', target), patch.object(i, 'USER_HOME', Path('/test')),              patch.object(i, 'command', return_value=SimpleNamespace(stdout=listing)) as listing_command,              patch.object(i.os, 'getpid', return_value=999), patch.object(i.os, 'getppid', return_value=998),              patch.object(i.os, 'kill', side_effect=kill) as terminate:
             i.stop_old_frontends()
+        self.assertEqual(listing_command.call_args.args[0], ['/bin/ps', '-U', str(i.os.getuid()), '-o', 'pid=,comm='])
         self.assertEqual(terminate.call_args_list[0].args, (111, signal.SIGTERM))
         self.assertFalse(any(call.args[0] == 222 for call in terminate.call_args_list))
 

@@ -70,7 +70,9 @@ def stop_old_frontends():
         str(TARGET.with_name('DJOneHub网络切换.app') / 'Contents/MacOS/NetworkMenu'),
         str(USER_HOME / 'Library/Application Support/DJOneHub/notifier/DJOneHubNotifier.app/Contents/MacOS/DJOneHubNotifier'),
     }
-    result = command(['/bin/ps', '-axo', 'pid=,comm='])
+    # The optional privileged lid guard exits when its user frontend dies.
+    # Do not try to send it a user-level signal during an upgrade.
+    result = command(['/bin/ps', '-U', str(os.getuid()), '-o', 'pid=,comm='])
     output = getattr(result, 'stdout', '')
     if not isinstance(output, str): return
     for row in output.splitlines():

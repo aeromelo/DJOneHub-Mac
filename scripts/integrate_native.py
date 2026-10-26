@@ -12,11 +12,12 @@ def replace_once(text, old, new):
 def prepare(root, destination):
     shutil.copytree(root / 'vendor/djonehub-enhanced', destination)
     sources = destination / 'Sources/DJOneHubNotifier'
-    for name in ('NetworkMenu.swift', 'Installer.swift', 'SettingsButtons.swift', 'About.swift'):
+    for name in ('NetworkMenu.swift', 'Installer.swift', 'SettingsButtons.swift', 'About.swift', 'KeepAwake.swift'):
         shutil.copy2(root / 'src' / name, sources / name)
     path = sources / 'AppMain.swift'
     text = path.read_text()
-    text = replace_once(text, '            SelfTest.run()', '            SelfTest.run()\n            networkMenuSelfTest()\n            updateCheckerSelfTest()')
+    text = replace_once(text, '            SelfTest.run()', '            SelfTest.run()\n            networkMenuSelfTest()\n            updateCheckerSelfTest()\n            closedLidSelfTest()')
+    text = replace_once(text, '    static func main() {', '    static func main() {\n        if runLidGuardIfRequested() { return }')
     text = replace_once(text, '        let app = NSApplication.shared', '        if offerInstallation() { return }\n        let app = NSApplication.shared')
     text = replace_once(text, '    private let api: DJOneHubAPI', '    private let networkMenu = NetworkMenu()\n    private let api: DJOneHubAPI')
     text = replace_once(text, '    private var mainWindow: NSWindow?', '    private var mainWindow: NSWindow?\n    private var aboutWindow: NSWindow?')
@@ -54,7 +55,7 @@ def prepare(root, destination):
     text = replace_once(text, '.buttonStyle(.bordered)\n                            .tint(.red)\n                            .controlSize(.regular)',
                         '.buttonStyle(SettingsActionButtonStyle(destructive: true))\n                            .controlSize(.regular)')
     text = replace_once(text, '                    MoreView()\n\n                    MoreSectionTitle(L10n.t("服务控制"))',
-                        '                    MoreView()\n\n                    AboutDJOneHubSection()\n\n                    MoreSectionTitle(L10n.t("服务控制"))')
+                        '                    MoreView()\n\n                    ClosedLidSection()\n\n                    AboutDJOneHubSection()\n\n                    MoreSectionTitle(L10n.t("服务控制"))')
     phone.write_text(text)
     apply_settings_button_colors(sources / 'MoreView.swift')
 

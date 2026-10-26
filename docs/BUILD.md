@@ -24,6 +24,8 @@ src 的 Python 仅依赖标准库。App 用内置 Python 的 `-I -B` 隔离模�
 
 物理出口切换后，使用现有 Mihomo 核心的当前配置重新加载 TUN / DNS，恢复原有模式和手动节点选择，并等待本地 DNS 与无线地址就绪。重新加载会重建旧连接，不替换订阅。
 
+合盖保护由 `KeepAwake.swift` 管理。系统 AppleScript 管理员授权仅启动同一签名可执行文件的 `--lid-guard` 子进程；子进程仅调用固定路径的 pmset，检查父进程 PID / 启动时间与随机会话文件，结束后恢复 SleepDisabled。用户前台进程能删除会话文件停止保护，无需再次提权；没有安装常驻 root 服务。原有 SleepDisabled=1 时拒绝覆盖。普通退出、父进程被强制退出会清理；守护本身被 SIGKILL 或强制断电时以本地恢复标记提示用户修复。
+
 ## 构建环境
 
 需要 Apple Silicon Mac、完整 Xcode / Swift 6 工具链（Swift 语言模式 5）、Python 3.9+ 运行构建脚本、hdiutil、codesign。编译目标 macOS 13.0。终端：
