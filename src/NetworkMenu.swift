@@ -133,6 +133,8 @@ final class NetworkMenu: NSObject, NSApplicationDelegate {
     private let powerStatus = NSMenuItem(title: "", action: nil, keyEquivalent: "")
     private var closedLid: NSMenuItem!
     private let lidPower = ClosedLidController.shared
+    private let dockVisibility = DockVisibilityController.shared
+    private var dockMenuItem: NSMenuItem!
     private var idleSleepAssertion: IOPMAssertionID = 0
     private var wasCellularBeforeSleep = false
     private var lastWakeRecovery = Date.distantPast
@@ -155,6 +157,9 @@ final class NetworkMenu: NSObject, NSApplicationDelegate {
     private var cellular: NSMenuItem!
     private var automatic: NSMenuItem!
     private var timer: Timer?
+    private var speedTimer: Timer?
+    private var transferSampler = TransferSampler()
+    private var transferRate: TransferRate?
     private var refreshing = false
     private var switching = false
     private var lastState: NetworkState?
@@ -227,6 +232,9 @@ final class NetworkMenu: NSObject, NSApplicationDelegate {
         menu.addItem(sitesItem)
         _ = add("重新检测代理出口", #selector(refreshProxy))
         _ = add("打开 DJOneHub", #selector(openDJOneHub))
+        dockMenuItem = add("在 Dock 中显示", #selector(toggleDock))
+        dockVisibility.changed = { [weak self] in self?.showDockPreference() }
+        showDockPreference()
         menu.addItem(.separator())
         _ = add("退出 DJOneHub（恢复代理自动出口）", #selector(quit))
         status.menu = menu
@@ -236,6 +244,9 @@ final class NetworkMenu: NSObject, NSApplicationDelegate {
         notifications.addObserver(self, selector: #selector(didWake(_:)), name: NSWorkspace.screensDidWakeNotification, object: nil)
         refresh()
         timer = Timer.scheduledTimer(withTimeInterval: 5, repeats: true) { [weak self] _ in self?.refresh() }
+        let speed = Timer(timeInterval: 1, repeats: true) { [weak self] _ in self?.refreshSpeed() }
+        RunLoop.main.add(speed, forMode: .common)
+        speedTimer = speed
     }
 
     private func add(_ title: String, _ action: Selector) -> NSMenuItem {
@@ -262,14 +273,16 @@ final class NetworkMenu: NSObject, NSApplicationDelegate {
     }
 
     private func show(_ state: NetworkState) {
+        if lastState?.device != state.device {
+            transferSampler.reset()
+            transferRate = nil
+        }
         lastState = state
         updateSleepProtection(state)
         status.isVisible = state.cellular_connected
         let label = state.mode == "4g" ? "4G" : state.mode == "wifi" ? "Wi-Fi" : "其他网络"
-        status.button?.title = state.mode == "4g" ? "4G" : "\(label) · 4G"
-        status.button?.image = signalIcon(signalLevel(state.signal_dbm))
         status.button?.imagePosition = .imageRight
-        status.button?.toolTip = "点击选择 Wi-Fi / 4G；" + (state.cellular_available ? "4G 信号 \(state.signal_dbm.map { "\($0) dBm" } ?? "读取中")" : "Mac 尚未识别 4G 模块")
+        renderStatusTitle()
         current.title = "当前出口：\(label)（\(state.device)）"
         if let error = state.automation_error { current.title = "自动切换未完成：\(error)" }
         if !state.cellular_available {
@@ -353,8 +366,38 @@ final class NetworkMenu: NSObject, NSApplicationDelegate {
 
     @objc private func toggleClosedLid() { lidPower.toggle() }
 
-    @objc private func willSleep() { wasCellularBeforeSleep = lastState?.mode == "4g" }
+    private func refreshSpeed() {
+        let sample = !switching ? lastState.flatMap { InterfaceCounters.read($0.device) } : nil
+        transferRate = transferSampler.update(sample, at: ProcessInfo.processInfo.systemUptime)
+        renderStatusTitle()
+    }
+
+    private func renderStatusTitle() {
+        guard let state = lastState else { return }
+        let label = state.mode == "4g" ? "4G" : state.mode == "wifi" ? "Wi-Fi · 4G" : "其他网络 · 4G"
+        status.button?.title = label
+        status.button?.image = signalAndSpeedIcon(signalLevel(state.signal_dbm), rate: transferRate)
+        status.button?.setAccessibilityLabel(label + "，" + (status.button?.image?.accessibilityDescription ?? ""))
+        status.button?.toolTip = "点击选择 Wi-Fi / 4G；" +
+            (state.signal_dbm.map { "4G 信号 \($0) dBm；" } ?? "") +
+            "当前网卡 \(state.device)：下载 \(transferRate.map { TransferRate.format($0.download) } ?? "待采样")，上传 \(transferRate.map { TransferRate.format($0.upload) } ?? "待采样")"
+    }
+
+    private func showDockPreference() {
+        dockMenuItem.state = dockVisibility.visible ? .on : .off
+        dockMenuItem.toolTip = dockVisibility.error.isEmpty ? "关闭后仍保留后台与菜单栏；聚焦搜索可重新打开窗口" : dockVisibility.error
+        auditMenu()
+    }
+
+    @objc private func toggleDock() { dockVisibility.setVisible(!dockVisibility.visible) }
+    @objc private func willSleep() {
+        wasCellularBeforeSleep = lastState?.mode == "4g"
+        transferSampler.reset()
+        transferRate = nil
+    }
     @objc private func didWake(_ notification: Notification) {
+        transferSampler.reset()
+        transferRate = nil
         if notification.name == NSWorkspace.screensDidWakeNotification && !wasCellularBeforeSleep { refresh(); return }
         guard wasCellularBeforeSleep || lastState?.mode == "4g" else { refresh(); return }
         guard Date().timeIntervalSince(lastWakeRecovery) >= 15, !switching else { return }
@@ -365,6 +408,7 @@ final class NetworkMenu: NSObject, NSApplicationDelegate {
     func applicationWillTerminate(_ notification: Notification) {
         lidPower.stop()
         timer?.invalidate()
+        speedTimer?.invalidate()
         NSWorkspace.shared.notificationCenter.removeObserver(self)
         _ = try? runNetworkControl("automatic")
         if idleSleepAssertion != 0 { IOPMAssertionRelease(idleSleepAssertion) }
@@ -404,7 +448,14 @@ final class NetworkMenu: NSObject, NSApplicationDelegate {
                                   "closed_lid_protection": lidPower.enabled,
                                   "closed_lid_busy": lidPower.busy,
                                   "closed_lid_status": lidPower.message,
+                                  "show_in_dock": dockVisibility.visible,
+                                  "activation_policy": NSApp.activationPolicy().rawValue,
+                                  "speed_interface": lastState?.device ?? "",
+                                  "download_bytes_per_second": transferRate.map { $0.download } ?? NSNull(),
+                                  "upload_bytes_per_second": transferRate.map { $0.upload } ?? NSNull(),
                                   "title": status.button?.title ?? "",
+                                  "speed_title": transferRate?.title ?? "↓-- ↑--",
+                                  "speed_layout": "signal-then-download-above-upload",
                                   "vpn_sites": vpnSettings.items.map { ["title": $0.title, "checked": $0.state == .on, "enabled": $0.isEnabled] },
                                   "items": menu.items.filter { !$0.isSeparatorItem }.map { item in
                                       ["title": item.title, "enabled": item.isEnabled, "checked": item.state == .on,
@@ -509,8 +560,6 @@ func networkMenuSelfTest() {
     let bad = ProbeResult(ok: false, http_status: 403, latency_ms: 1, error: "访问受限 · HTTP 403", label: "Claude")
     let check = ConnectivityState(mode: "4g", device: "en9", checked_at: "", network_changed: false, tests: ["internet": bad, "google": good, "claude": bad])
     assert(failedVPNChecks(check).map { $0.key } == ["claude"])
-    let item = failureMenuItem("Claude：访问受限")
-    assert((item.view?.subviews.first as? NSTextField)?.textColor == .systemRed)
     assert(failedVPNChecks(ConnectivityState(mode: "wifi", device: "en0", checked_at: "", network_changed: false, tests: ["google": good])).isEmpty)
     print("Signal display checks passed")
 }

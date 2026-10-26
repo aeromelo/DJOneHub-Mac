@@ -40,7 +40,9 @@ python3 scripts/build.py
 
 构建使用 build.noindex 目录，避免 Spotlight 将临时 App 当成多个安装版本。
 
-输出：build.noindex/DJOneHub.app、dist/DJOneHub-Mac-版本-macOS-arm64.dmg、dist/SHA256SUMS.txt。构建先给 Python 的 Mach-O 模块签名，再签名 App、执行严格校验与原生 self-test，最后生成压缩 DMG。
+输出：build.noindex/DJOneHub.app、dist/DJOneHub-Mac-版本-macOS-arm64.dmg、dist/SHA256SUMS.txt。构建先给 Python 的 Mach-O 模块签名，再签名 App、执行严格校验与原生 self-test，最后生成压缩 DMG。Swift 构建使用 release 优化并关闭独立 dSYM，避免把调试符号带入发行 App。
+
+在不允许挂载 DMG 的受限构建环境，可设置 `DJONEHUB_UPSTREAM_DIR` 指向已经校验安装的 `.../Contents/Resources/upstream`，复用同一份固定 v1.2.9 后端；正常公开构建仍按 `DEPENDENCIES.json` 下载并 SHA256 校验上游 DMG。
 
 ## 发行
 

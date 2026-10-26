@@ -2,6 +2,7 @@
 """Build the pinned offline Apple Silicon DMG. No personal runtime files copied."""
 import hashlib
 import json
+import os
 from pathlib import Path
 import plistlib
 import shutil
@@ -27,6 +28,20 @@ def obtain(name, dependency):
     if hashlib.sha256(path.read_bytes()).hexdigest() != dependency['sha256']:
         raise RuntimeError('Dependency checksum mismatch: ' + name)
     return path
+
+
+def copy_upstream(target):
+    """Use a reviewed local upstream tree when DMG mounting is unavailable."""
+    source = os.environ.get('DJONEHUB_UPSTREAM_DIR')
+    if not source:
+        return False
+    upstream = Path(source).expanduser()
+    if upstream.name != 'djonehub':
+        upstream /= 'djonehub'
+    if not (upstream / 'bin/djonehub-macos').is_file():
+        raise RuntimeError('DJONEHUB_UPSTREAM_DIR does not contain djonehub/bin/djonehub-macos')
+    shutil.copytree(upstream, target / 'djonehub', symlinks=True)
+    return True
 
 
 def main():
@@ -56,15 +71,16 @@ def main():
     shutil.copy2(ROOT / 'LICENSE', resources / 'LICENSE')
     shutil.copy2(ROOT / 'THIRD_PARTY_NOTICES.md', resources / 'THIRD_PARTY_NOTICES.md')
     shutil.copy2(ROOT / 'DEPENDENCIES.json', resources / 'DEPENDENCIES.json')
-    mounted = plistlib.loads(subprocess.check_output(['/usr/bin/hdiutil', 'attach', '-readonly', '-nobrowse', '-plist', str(upstream_dmg)]))
-    mount = next(Path(e['mount-point']) for e in mounted['system-entities'] if e.get('mount-point'))
-    try:
-        target = resources / 'upstream'
-        target.mkdir()
-        for name in ('djonehub',):
-            shutil.copytree(mount / name, target / name, symlinks=True)
-    finally:
-        run(['/usr/bin/hdiutil', 'detach', mount])
+    target = resources / 'upstream'
+    target.mkdir()
+    if not copy_upstream(target):
+        mounted = plistlib.loads(subprocess.check_output(['/usr/bin/hdiutil', 'attach', '-readonly', '-nobrowse', '-plist', str(upstream_dmg)]))
+        mount = next(Path(e['mount-point']) for e in mounted['system-entities'] if e.get('mount-point'))
+        try:
+            for name in ('djonehub',):
+                shutil.copytree(mount / name, target / name, symlinks=True)
+        finally:
+            run(['/usr/bin/hdiutil', 'detach', mount])
     developer = Path('/Applications/Xcode.app/Contents/Developer')
     compiler = developer / 'Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc'
     sdk = developer / 'Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk'
@@ -75,10 +91,12 @@ def main():
     native = BUILD / 'native'
     if native.exists(): shutil.rmtree(native)
     prepare(ROOT, native)
-    env = dict(__import__('os').environ, DEVELOPER_DIR=str(developer), SDKROOT=str(sdk))
+    env = dict(__import__('os').environ, DEVELOPER_DIR=str(developer), SDKROOT=str(sdk),
+               CLANG_MODULE_CACHE_PATH=str(CACHE / 'swift-module-cache'))
     swift = developer / 'Toolchains/XcodeDefault.xctoolchain/usr/bin/swift'
     subprocess.run([str(swift), 'build', '--package-path', str(native), '--disable-sandbox', '-c', 'release',
-                    '--triple', 'arm64-apple-macosx13.0', '--sdk', str(sdk)], env=env, check=True)
+                    '-debug-info-format', 'none', '--triple', 'arm64-apple-macosx13.0', '--sdk', str(sdk)],
+                   env=env, check=True)
     bin_directory = subprocess.check_output([str(swift), 'build', '--package-path', str(native), '-c', 'release',
                     '--triple', 'arm64-apple-macosx13.0', '--sdk', str(sdk), '--show-bin-path'], env=env, text=True).strip().splitlines()[-1]
     binary = Path(bin_directory) / 'DJOneHubNotifier'

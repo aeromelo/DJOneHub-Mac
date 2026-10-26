@@ -12,11 +12,12 @@ def replace_once(text, old, new):
 def prepare(root, destination):
     shutil.copytree(root / 'vendor/djonehub-enhanced', destination)
     sources = destination / 'Sources/DJOneHubNotifier'
-    for name in ('NetworkMenu.swift', 'Installer.swift', 'SettingsButtons.swift', 'About.swift', 'KeepAwake.swift', 'LidService.swift'):
+    for name in ('NetworkMenu.swift', 'Installer.swift', 'SettingsButtons.swift', 'About.swift', 'KeepAwake.swift', 'LidService.swift', 'MenuPresentation.swift'):
         shutil.copy2(root / 'src' / name, sources / name)
     path = sources / 'AppMain.swift'
     text = path.read_text()
-    text = replace_once(text, '            SelfTest.run()', '            SelfTest.run()\n            networkMenuSelfTest()\n            updateCheckerSelfTest()\n            closedLidSelfTest()\n            lidServiceSelfTest()')
+    text = replace_once(text, '            SelfTest.run()', '            SelfTest.run()\n            networkMenuSelfTest()\n            updateCheckerSelfTest()\n            closedLidSelfTest()\n            lidServiceSelfTest()\n            menuPresentationSelfTest()')
+    text = replace_once(text, '        app.setActivationPolicy(.regular)', '        DockVisibilityController.shared.applySaved()')
     text = replace_once(text, '    static func main() {', '    static func main() {\n        if runLidServiceIfRequested() { return }')
     text = replace_once(text, '        let app = NSApplication.shared', '        if offerInstallation() { return }\n        let app = NSApplication.shared')
     text = replace_once(text, '    private let api: DJOneHubAPI', '    private let networkMenu = NetworkMenu()\n    private let api: DJOneHubAPI')
@@ -55,7 +56,7 @@ def prepare(root, destination):
     text = replace_once(text, '.buttonStyle(.bordered)\n                            .tint(.red)\n                            .controlSize(.regular)',
                         '.buttonStyle(SettingsActionButtonStyle(destructive: true))\n                            .controlSize(.regular)')
     text = replace_once(text, '                    MoreView()\n\n                    MoreSectionTitle(L10n.t("服务控制"))',
-                        '                    MoreView()\n\n                    ClosedLidSection()\n\n                    AboutDJOneHubSection()\n\n                    MoreSectionTitle(L10n.t("服务控制"))')
+                        '                    MoreView()\n\n                    MenuPresentationSection()\n\n                    ClosedLidSection()\n\n                    AboutDJOneHubSection()\n\n                    MoreSectionTitle(L10n.t("服务控制"))')
     phone.write_text(text)
     apply_settings_button_colors(sources / 'MoreView.swift')
 
